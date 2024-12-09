@@ -237,13 +237,15 @@ When FUNC with args, match number of args as well."
                 (when (> (match-beginning 0) end-of-line-pos)
                   (setq is-valid-reference nil))))))
         (when is-valid-reference
-          (setq nb-of-reference-args (call-graph--scan-func-args short-fun-str))
-          (if (and nb-of-func-args nb-of-reference-args)
-              ;; TODO: check if func has args with default value
-              ;; if not, we should use exact match here.
-              (when (= nb-of-reference-args nb-of-func-args) ; check func-args matches references-args
-                (setq caller (call-graph--which-function)))
-            (setq caller (call-graph--which-function)))
+          (setq caller (call-graph--which-function))
+          ;; disable arg number check for now
+          ;; (setq nb-of-reference-args (call-graph--scan-func-args short-fun-str))
+          ;; (if (and nb-of-func-args nb-of-reference-args)
+          ;;     ;; TODO: check if func has args with default value
+          ;;     ;; if not, we should use exact match here.
+          ;;     (when (= nb-of-reference-args nb-of-func-args) ; check func-args matches references-args
+          ;;       (setq caller (call-graph--which-function)))
+          ;;   (setq caller (call-graph--which-function)))
           (unless call-graph-display-func-args
             (setq caller (call-graph--extract-namespace-and-method caller)))))
       (when caller
