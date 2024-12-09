@@ -56,6 +56,7 @@
 ;;       Don't kill buffers which has been visited before when closing call-graph buffer.
 ;; 1.0.2 Replace mapc/mapcar with cl-loop to improve performance.
 ;; 1.0.3 Flash visited file location with beacon.
+;; 1.0.4 Disable arg number check for now.
 
 ;;; Code:
 
