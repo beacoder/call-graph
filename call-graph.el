@@ -309,8 +309,8 @@ When FUNC with args, match number of args as well."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (cl-defstruct (call-graph
-               (:constructor nil)
                (:constructor call-graph--make)
+               (:copier nil)
                (:conc-name call-graph--))
   (callers (make-hash-table :test #'equal)) ; map func to its callers
   (locations (make-hash-table :test #'equal)) ; map func <- caller to its locations
