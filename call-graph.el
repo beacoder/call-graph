@@ -4,7 +4,7 @@
 
 ;; Author: Huming Chen <chenhuming@gmail.com>
 ;; URL: https://github.com/beacoder/call-graph
-;; Version: 1.0.3
+;; Version: 1.0.5
 ;; Created: 2018-01-07
 ;; Keywords: programming, convenience
 ;; Package-Requires: ((emacs "26.1") (tree-mode "1.0.0") (ivy "0.10.0") (beacon "1.3.4"))
@@ -57,6 +57,7 @@
 ;; 1.0.2 Replace mapc/mapcar with cl-loop to improve performance.
 ;; 1.0.3 Flash visited file location with beacon.
 ;; 1.0.4 Disable arg number check for now.
+;; 1.0.5 Use Git as default search backend.
 
 ;;; Code:
 
@@ -592,9 +593,9 @@ e.g: class::method(arg1, arg2) => class::method."
 
       ;; callers not found.
       (unless callers
-        (seq-doseq (reference (if (and call-graph-search-backend (equal call-graph-search-backend "Git"))
-                                  (call-graph--git-find-references short-func (call-graph--root-location call-graph))
-                                (call-graph--global-find-references short-func)))
+        (seq-doseq (reference (if (and call-graph-search-backend (equal call-graph-search-backend "Global"))
+                                  (call-graph--global-find-references short-func)
+                                (call-graph--git-find-references short-func (call-graph--root-location call-graph))))
           (when-let ((caller-info
                       (and reference (call-graph--find-caller reference func data-mode))))
             (message (format "Search returns: %s" (symbol-name (car caller-info))))
@@ -649,6 +650,9 @@ CALCULATE-DEPTH is used to calculate actual depth."
   "Generate CALL-GRAPH for FUNC, DEPTH is the depth of caller-map."
   (when (and call-graph func depth)
     (setq call-graph--default-hierarchy (hierarchy-new))
+    (unless call-graph-path-to-git-repo
+      (setq call-graph-path-to-git-repo
+            (shell-command-to-string "git rev-parse --show-toplevel")))
     (call-graph--search-callers call-graph func depth)
     (call-graph--build-hierarchy call-graph func depth)
     (call-graph--display-hierarchy)
