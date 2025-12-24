@@ -28,15 +28,15 @@ Clone the repo, then in your Emacs init file:
 Or install from [melpa](https://melpa.org/#/call-graph).
 
 ## External dependency
-You could choose either Global (default) or Git as search backend for call-graph to use.
-* `GNU Global`
-
-`call-graph` will recursively call `Global` to find caller of
-current function and eventually build up a `call-graph` tree.
-
+You could choose either Git (default) or Global as search backend for call-graph to use.
 * `Git`
 
 `call-graph` will recursively call `git grep` to find caller of
+current function and eventually build up a `call-graph` tree.
+
+* `GNU Global`
+
+`call-graph` will recursively call `Global` to find caller of
 current function and eventually build up a `call-graph` tree.
 
 # Usage
@@ -69,14 +69,15 @@ You could bind it to <kbd>C-c g</kbd>.
 
 # Customization
 
+## Backend configuration: Git (Default)
+```
+    ;; not needed, as Git is default backend.
+    ;; (customize-set-variable 'call-graph-search-backend "Git")
+    ;; (customize-set-variable 'call-graph-path-to-git-repo "/workspace/git/$username/repo/")
+```
 ## Backend configuration: Gnu Global
 ```
     (customize-set-variable 'call-graph-path-to-global "/home/huming/private/gtags-6.5.7/bin/")
-```
-## Backend configuration: Git
-```
-    (customize-set-variable 'call-graph-search-backend "Git")
-    (customize-set-variable 'call-graph-path-to-git-repo "/workspace/git/$username/repo/")
 ```
 ## Common configuration
 Specify the parse depth of the call-graph, 
@@ -109,7 +110,6 @@ Exclude UT/CT directories like /Dummy_SUITE/ /Dummy_Test/
 (progn
   (require 'call-graph)
   (global-set-key (kbd "C-c g") #'call-graph)
-  (customize-set-variable 'call-graph-path-to-global "/home/$username/private/gtags-6.6.3/bin/")
   (customize-set-variable 'imenu-max-item-length "Unlimited")
   (customize-set-variable 'call-graph-display-func-args t)
   (dolist (filter '("grep -v \"Test/\""
