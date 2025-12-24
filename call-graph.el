@@ -153,7 +153,7 @@
   "The alist form of `call-graph--caller-cache'.")
 
 (defvar call-graph--caller-cache nil
-  "The cached caller-map.")
+  "The cached caller-map subset used for filtering.")
 
 (defvar call-graph--default-instance nil
   "Default CALL-GRAPH instance.")
