@@ -77,6 +77,8 @@ You could bind it to <kbd>C-c g</kbd>.
 ```
 ## Backend configuration: Gnu Global
 ```
+    ;; install "GNU Global" with universal-ctags support
+    ;; "cd /path/to/project && gtags"
     (customize-set-variable 'call-graph-search-backend "Global")
     (customize-set-variable 'call-graph-path-to-global "/home/huming/private/gtags-6.5.7/bin/")
 ```
