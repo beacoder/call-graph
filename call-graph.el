@@ -180,34 +180,34 @@
 (defun call-graph--extract-method-name (full-func)
   "Given FULL-FUNC, return a SHORT-FUNC.
 e.g: class::method(arg1, arg2) => method."
-  (when-let ((full-func-str (symbol-name full-func))
-             (temp-split (split-string full-func-str "("))
-             (short-func-with-namespace (car temp-split))
-             (short-func (intern (car (last (split-string short-func-with-namespace "::"))))))
+  (when-let* ((full-func-str (symbol-name full-func))
+              (temp-split (split-string full-func-str "("))
+              (short-func-with-namespace (car temp-split))
+              (short-func (intern (car (last (split-string short-func-with-namespace "::"))))))
     short-func))
 
 (defun call-graph--which-function ()
   "Return current function name and args based on point."
-  (when-let ((func (which-function)))
+  (when-let* ((func (which-function)))
     (catch 'found
       (dolist (alist imenu--index-alist)
-        (when-let ((full-func (car alist))
-                   (match? (string-match func full-func))
-                   (found? (zerop match?)))
+        (when-let* ((full-func (car alist))
+                    (match? (string-match func full-func))
+                    (found? (zerop match?)))
           (throw 'found full-func))))))
 
 (defun call-graph--find-caller (reference func data-mode)
   "Given a REFERENCE of FUNC for mode DATA-MODE.
 Return the caller as (caller . location).
 When FUNC with args, match number of args as well."
-  (when-let ((tmp-split (split-string reference ":"))
-             (file-name (car tmp-split))
-             (line-nb-str (cadr tmp-split))
-             (line-nb (string-to-number line-nb-str))
-             (is-valid-file (file-exists-p file-name))
-             (is-valid-nb (integerp line-nb))
-             func
-             (short-func (call-graph--extract-method-name func)))
+  (when-let* ((tmp-split (split-string reference ":"))
+              (file-name (car tmp-split))
+              (line-nb-str (cadr tmp-split))
+              (line-nb (string-to-number line-nb-str))
+              (is-valid-file (file-exists-p file-name))
+              (is-valid-nb (integerp line-nb))
+              func
+              (short-func (call-graph--extract-method-name func)))
     (let ((location (concat file-name ":" line-nb-str))
           (caller nil)
           (nb-of-func-args (call-graph--number-of-args (symbol-name func)))
@@ -219,7 +219,7 @@ When FUNC with args, match number of args as well."
         (insert-file-contents-literally file-name)
         (goto-char (point-min))
         (while (re-search-forward "__attribute__[ \t\n]*(([[:alpha:]]+))" nil t)
-          ; imenu failed to parse function with __attribute__ ((...)) as args
+                                        ; imenu failed to parse function with __attribute__ ((...)) as args
           (replace-match "__attribute__" t nil))
         (goto-char (point-min))
         (forward-line (1- line-nb))
@@ -296,9 +296,9 @@ When FUNC with args, match number of args as well."
 
 (defun call-graph--handle-root-function (call-graph)
   "Save location of root function in CALL-GRAPH."
-  (when-let ((file-name (buffer-file-name))
-             (line-nb (line-number-at-pos))
-             (location (concat file-name ":" (number-to-string line-nb))))
+  (when-let* ((file-name (buffer-file-name))
+              (line-nb (line-number-at-pos))
+              (location (concat file-name ":" (number-to-string line-nb))))
     ;; save root function location
     (setf (map-elt (call-graph--locations call-graph) 'root-function) (list location))
     ;; TODO: this line causes void-function error, fix it later
@@ -383,9 +383,9 @@ White space here is any of: space, tab, Emacs newline (line feed, ASCII 10)."
 (defun call-graph--extract-namespace-and-method (full-func)
   "Given FULL-FUNC, return a namespace and method.
 e.g: class::method(arg1, arg2) => class::method."
-  (when-let ((full-func-str full-func)
-             (temp-split (split-string full-func-str "("))
-             (short-func-with-namespace (car temp-split)))
+  (when-let* ((full-func-str full-func)
+              (temp-split (split-string full-func-str "("))
+              (short-func-with-namespace (car temp-split)))
     short-func-with-namespace))
 
 (defun call-graph--get-path-to-global ()
@@ -411,7 +411,7 @@ e.g: class::method(arg1, arg2) => class::method."
             ;; https://lists.gnu.org/r/emacs-pretest-bug/2007-02/msg00021.html
             "[^()\n]*"                              ; no parentheses before
             "[^" c-alnum "_:<>~]"                   ; match any non-identifier char
-            ; 2ND-GROUP MATCH FUNCTION AND ITS ARGS WHILE 1ST-GROUP MATCH FUNCTION NAME
+                                        ; 2ND-GROUP MATCH FUNCTION AND ITS ARGS WHILE 1ST-GROUP MATCH FUNCTION NAME
             "\\(?2:\\(?1:[" c-alpha "_][" c-alnum "_:<>~]*\\)"
             "\\([ \t\n]\\|\\\\\n\\)*("              ; see above, BUT the arg list
             "\\([ \t\n]\\|\\\\\n\\)*"               ; must not start
@@ -502,12 +502,12 @@ e.g: class::method(arg1, arg2) => class::method."
 
 (defun call-graph--visit-function (func-location)
   "Visit function location FUNC-LOCATION."
-  (when-let ((temp-split (split-string func-location ":"))
-             (file-name (car temp-split))
-             (line-nb-str (cadr temp-split))
-             (line-nb (string-to-number line-nb-str))
-             (is-valid-file (file-exists-p file-name))
-             (is-valid-nb (integerp line-nb)))
+  (when-let* ((temp-split (split-string func-location ":"))
+              (file-name (car temp-split))
+              (line-nb-str (cadr temp-split))
+              (line-nb (string-to-number line-nb-str))
+              (is-valid-file (file-exists-p file-name))
+              (is-valid-nb (integerp line-nb)))
     (find-file-read-only-other-window file-name)
     (with-no-warnings (goto-char (point-min))
                       (forward-line (1- line-nb))
@@ -585,9 +585,9 @@ e.g: class::method(arg1, arg2) => class::method."
 
 (defun call-graph--search-callers (call-graph func depth)
   "In CALL-GRAPH, given FUNC, search callers deep to level DEPTH."
-  (when-let ((next-depth (and (> depth 0) (1- depth)))
-             (short-func (call-graph--extract-method-name func))
-             (data-mode (call-graph--data-mode call-graph)))
+  (when-let* ((next-depth (and (> depth 0) (1- depth)))
+              (short-func (call-graph--extract-method-name func))
+              (data-mode (call-graph--data-mode call-graph)))
     (let ((caller-list (list))
           (callers (map-elt (call-graph--callers call-graph) short-func (list))))
 
@@ -596,8 +596,8 @@ e.g: class::method(arg1, arg2) => class::method."
         (seq-doseq (reference (if (and call-graph-search-backend (equal call-graph-search-backend "Global"))
                                   (call-graph--global-find-references short-func)
                                 (call-graph--git-find-references short-func (call-graph--root-location call-graph))))
-          (when-let ((caller-info
-                      (and reference (call-graph--find-caller reference func data-mode))))
+          (when-let* ((caller-info
+                       (and reference (call-graph--find-caller reference func data-mode))))
             (message (format "Search returns: %s" (symbol-name (car caller-info))))
             (push caller-info caller-list)))
         (call-graph--add-callers call-graph func caller-list)
@@ -610,12 +610,12 @@ e.g: class::method(arg1, arg2) => class::method."
 (defun call-graph--build-hierarchy (call-graph func depth)
   "In CALL-GRAPH, given FUNC, build hierarchy deep to level DEPTH.
 CALCULATE-DEPTH is used to calculate actual depth."
-  (when-let ((next-depth (and (> depth 0) (1- depth)))
-             (hierarchy call-graph--default-hierarchy)
-             (short-func (call-graph--extract-method-name func))
-             (callers
-              (or (map-elt call-graph--caller-cache func (list)) ; load callers from cache
-                  (map-elt (call-graph--callers call-graph) short-func (list)))))
+  (when-let* ((next-depth (and (> depth 0) (1- depth)))
+              (hierarchy call-graph--default-hierarchy)
+              (short-func (call-graph--extract-method-name func))
+              (callers
+               (or (map-elt call-graph--caller-cache func (list)) ; load callers from cache
+                   (map-elt (call-graph--callers call-graph) short-func (list)))))
 
     ;; populate hierarchy data.
     (seq-doseq (caller callers)
@@ -697,13 +697,13 @@ With prefix argument, discard cached data and re-generate reference data."
 This works as a supplement, as `Global' sometimes fail to find caller."
   (interactive (list (call-graph--dwim-at-point)))
   (deactivate-mark)
-  (when-let ((short-func (intern func))
-             (full-caller (intern (which-function)))
-             (file-name (buffer-file-name))
-             (line-nb-str (number-to-string (line-number-at-pos)))
-             (location (concat file-name ":" line-nb-str))
-             (func-caller-key ; "callee <- class::caller" as key
-              (intern (concat (symbol-name short-func) " <- " (symbol-name full-caller)))))
+  (when-let* ((short-func (intern func))
+              (full-caller (intern (which-function)))
+              (file-name (buffer-file-name))
+              (line-nb-str (number-to-string (line-number-at-pos)))
+              (location (concat file-name ":" line-nb-str))
+              (func-caller-key ; "callee <- class::caller" as key
+               (intern (concat (symbol-name short-func) " <- " (symbol-name full-caller)))))
     (call-graph--initialize)
     (let ((call-graph call-graph--default-instance))
       ;; populate full-caller data
@@ -721,11 +721,11 @@ This works as a supplement, as `Global' sometimes fail to find caller."
 
 (defun call-graph-visit-file-at-point ()
   "Visit occurrence on the current line."
-  (when-let ((call-graph call-graph--default-instance)
-             (callee (get-text-property (point) 'callee-name))
-             (caller (get-text-property (point) 'caller-name))
-             (locations (call-graph--get-func-caller-location call-graph callee caller))
-             (location (car locations)))
+  (when-let* ((call-graph call-graph--default-instance)
+              (callee (get-text-property (point) 'callee-name))
+              (caller (get-text-property (point) 'caller-name))
+              (locations (call-graph--get-func-caller-location call-graph callee caller))
+              (location (car locations)))
     (call-graph--visit-function location)
     (when (> (seq-length locations) 1)
       (message "Multiple locations for this function, select with `call-graph-select-caller-location'"))))
@@ -767,14 +767,14 @@ This works as a supplement, as `Global' sometimes fail to find caller."
   (interactive)
   (save-excursion
     (call-graph--forward-to-text)
-    (when-let ((call-graph call-graph--default-instance)
-               (callee (get-text-property (point) 'callee-name))
-               (caller (get-text-property (point) 'caller-name))
-               (func-caller-key
-                (intern
-                 (concat (symbol-name (call-graph--extract-method-name callee)) " <- " (symbol-name caller))))
-               (locations (call-graph--get-func-caller-location call-graph callee caller))
-               (has-many (> (seq-length locations) 1)))
+    (when-let* ((call-graph call-graph--default-instance)
+                (callee (get-text-property (point) 'callee-name))
+                (caller (get-text-property (point) 'caller-name))
+                (func-caller-key
+                 (intern
+                  (concat (symbol-name (call-graph--extract-method-name callee)) " <- " (symbol-name caller))))
+                (locations (call-graph--get-func-caller-location call-graph callee caller))
+                (has-many (> (seq-length locations) 1)))
       (ivy-read "Caller Locations:" locations
                 :action (lambda (func-location)
                           (while (not (equal func-location (car locations)))
@@ -786,15 +786,15 @@ This works as a supplement, as `Global' sometimes fail to find caller."
 (defun call-graph-remove-single-caller ()
   "Within buffer <*call-graph*>, remove single caller at point."
   (call-graph--forward-to-text)
-  (when-let ((call-graph call-graph--default-instance)
-             (callee (get-text-property (point) 'callee-name))
-             (caller (get-text-property (point) 'caller-name))
-             (short-func (call-graph--extract-method-name callee))
-             (callers (map-elt (call-graph--callers call-graph) short-func (list)))
-             (deep-copy-of-callers (seq-map #'identity callers))
-             (filters
-              (or (map-elt call-graph--caller-cache callee deep-copy-of-callers)
-                  (setf (map-elt call-graph--caller-cache callee) deep-copy-of-callers))))
+  (when-let* ((call-graph call-graph--default-instance)
+              (callee (get-text-property (point) 'callee-name))
+              (caller (get-text-property (point) 'caller-name))
+              (short-func (call-graph--extract-method-name callee))
+              (callers (map-elt (call-graph--callers call-graph) short-func (list)))
+              (deep-copy-of-callers (seq-map #'identity callers))
+              (filters
+               (or (map-elt call-graph--caller-cache callee deep-copy-of-callers)
+                   (setf (map-elt call-graph--caller-cache callee) deep-copy-of-callers))))
     (unwind-protect
         (progn
           (when call-graph-display-file-other-window
@@ -869,9 +869,9 @@ With prefix argument, discard whole caller cache."
 (defun call-graph-expand (&optional level)
   "Expand `call-graph' by LEVEL."
   (interactive "p")
-  (when-let ((call-graph call-graph--default-instance)
-             (depth (+ (call-graph--widget-depth) level))
-             (func (call-graph--widget-root)))
+  (when-let* ((call-graph call-graph--default-instance)
+              (depth (+ (call-graph--widget-depth) level))
+              (func (call-graph--widget-root)))
     (let ((origin-pos (point))
           (origin-caller-name
            (get-text-property (point) 'caller-name)))
@@ -894,7 +894,7 @@ With prefix argument, discard whole caller cache."
   (let ((level (- (call-graph--widget-depth) level))
         (origin-pos (point))
         (origin-caller-name
-           (get-text-property (point) 'caller-name))
+         (get-text-property (point) 'caller-name))
         list-of-parents parent-caller-name)
     (unless origin-caller-name
       (beginning-of-line)
