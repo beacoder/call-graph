@@ -31,7 +31,7 @@
 ;;; Install:
 
 ;; Put this file into load-path directory, and byte compile it if
-;; desired. And put the following expression into your ~/.emacs.
+;; desired. And put the following expression into your ~/.emacs.d
 ;;
 ;;     (require 'call-graph)
 ;;     (global-set-key (kbd "C-c g") 'call-graph)
