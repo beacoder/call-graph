@@ -115,8 +115,8 @@
 
 (defcustom call-graph-search-backend nil
   "Backend for `call-graph' to search with."
-  :type '(choice (const :tag "Global")
-                 (const :tag "Git"))
+  :type '(choice (const :tag "Global" global)
+                 (const :tag "Git" git))
   :risky t
   :group 'call-graph)
 
@@ -593,7 +593,7 @@ e.g: class::method(arg1, arg2) => class::method."
 
       ;; callers not found.
       (unless callers
-        (seq-doseq (reference (if (and call-graph-search-backend (equal call-graph-search-backend "Global"))
+        (seq-doseq (reference (if (and call-graph-search-backend (equal call-graph-search-backend 'global))
                                   (call-graph--global-find-references short-func)
                                 (call-graph--git-find-references short-func (call-graph--root-location call-graph))))
           (when-let* ((caller-info
@@ -652,7 +652,7 @@ CALCULATE-DEPTH is used to calculate actual depth."
     (setq call-graph--default-hierarchy (hierarchy-new))
     (unless call-graph-path-to-git-repo
       (setq call-graph-path-to-git-repo
-            (shell-command-to-string "git rev-parse --show-toplevel")))
+            (vc-root-dir)))
     (call-graph--search-callers call-graph func depth)
     (call-graph--build-hierarchy call-graph func depth)
     (call-graph--display-hierarchy)
