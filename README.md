@@ -72,14 +72,14 @@ You could bind it to <kbd>C-c g</kbd>.
 ## Backend configuration: Git (Default)
 ```
     ;; not needed, as Git is default backend.
-    ;; (customize-set-variable 'call-graph-search-backend "Git")
+    ;; (customize-set-variable 'call-graph-search-backend 'git)
     ;; (customize-set-variable 'call-graph-path-to-git-repo "/workspace/git/$username/repo/")
 ```
 ## Backend configuration: Gnu Global
 ```
     ;; install "GNU Global" with universal-ctags support
     ;; "cd /path/to/project && gtags"
-    (customize-set-variable 'call-graph-search-backend "Global")
+    (customize-set-variable 'call-graph-search-backend 'global)
     (customize-set-variable 'call-graph-path-to-global "/home/huming/private/gtags-6.5.7/bin/")
 ```
 ## Common configuration
