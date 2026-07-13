@@ -79,7 +79,7 @@
 
 (defgroup call-graph nil
   "Customization support for the `call-graph'."
-  :version "1.0.5"
+  :version "1.0.6"
   :group 'applications)
 
 (defcustom call-graph-initial-max-depth 2
