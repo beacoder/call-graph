@@ -1,10 +1,10 @@
 ;;; call-graph.el --- Generate call graph for c/c++ functions  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2018-2025 by Huming Chen
+;; Copyright (C) 2018-2026 by Huming Chen
 
 ;; Author: Huming Chen <chenhuming@gmail.com>
 ;; URL: https://github.com/beacoder/call-graph
-;; Version: 1.0.5
+;; Version: 1.0.6
 ;; Created: 2018-01-07
 ;; Keywords: programming, convenience
 ;; Package-Requires: ((emacs "28.1") (tree-mode "1.0.0") (ivy "0.10.0") (beacon "1.3.4"))
@@ -58,16 +58,16 @@
 ;; 1.0.3 Flash visited file location with beacon.
 ;; 1.0.4 Disable arg number check for now.
 ;; 1.0.5 Use Git as default search backend.
+;; 1.0.6 Fix all kinds of stability issue.
 
 ;;; Code:
 
-(require 'beacon)
 (require 'cc-mode)
 (require 'cl-lib)
 (require 'desktop)
 (require 'hierarchy)
-(require 'ivy)
 (require 'map)
+(require 'pulse)
 (require 'seq)
 (require 'subr-x)
 (require 'tree-mode)
@@ -79,7 +79,7 @@
 
 (defgroup call-graph nil
   "Customization support for the `call-graph'."
-  :version "0.1.0"
+  :version "1.0.5"
   :group 'applications)
 
 (defcustom call-graph-initial-max-depth 2
@@ -210,8 +210,6 @@ When FUNC with args, match number of args as well."
               (short-func (call-graph--extract-method-name func)))
     (let ((location (concat file-name ":" line-nb-str))
           (caller nil)
-          (nb-of-func-args (call-graph--number-of-args (symbol-name func)))
-          (nb-of-reference-args nil)
           (short-fun-str (symbol-name short-func))
           (is-valid-reference t))
       (with-temp-buffer
@@ -225,7 +223,7 @@ When FUNC with args, match number of args as well."
         (forward-line (1- line-nb))
         (call-graph--setq-local-mode-hook-nil data-mode)
         (setq imenu--index-alist nil)
-        (funcall data-mode)
+        (delay-mode-hooks (funcall data-mode))
         (setq-local which-func-cleanup-function nil)
         (which-function-mode t)
         ;; make sure reference contains a function call
@@ -240,14 +238,6 @@ When FUNC with args, match number of args as well."
                   (setq is-valid-reference nil))))))
         (when is-valid-reference
           (setq caller (call-graph--which-function))
-          ;; disable arg number check for now
-          ;; (setq nb-of-reference-args (call-graph--scan-func-args short-fun-str))
-          ;; (if (and nb-of-func-args nb-of-reference-args)
-          ;;     ;; TODO: check if func has args with default value
-          ;;     ;; if not, we should use exact match here.
-          ;;     (when (= nb-of-reference-args nb-of-func-args) ; check func-args matches references-args
-          ;;       (setq caller (call-graph--which-function)))
-          ;;   (setq caller (call-graph--which-function)))
           (unless call-graph-display-func-args
             (setq caller (call-graph--extract-namespace-and-method caller)))))
       (when caller
@@ -375,10 +365,7 @@ If there's a string at point, use it instead of prompt."
 (defun call-graph--trim-string (string)
   "Remove white spaces in beginning and ending of STRING.
 White space here is any of: space, tab, Emacs newline (line feed, ASCII 10)."
-  (replace-regexp-in-string
-   "\\`[ \t\n]*" ""
-   (replace-regexp-in-string
-    "[ \t\n]*\\'" "" string)))
+  (string-trim string))
 
 (defun call-graph--extract-namespace-and-method (full-func)
   "Given FULL-FUNC, return a namespace and method.
@@ -433,19 +420,17 @@ e.g: class::method(arg1, arg2) => class::method."
       (delete-region (point-min) (point))
       (goto-char (point-max))
       (delete-region (search-backward ")" nil t) (point-max))
-      ;; (message (buffer-string))
       (save-match-data ;; save previous match-data and restore later
         ;; Map over the elements of call-graph--pattern-replace-alist
-        ;; (pattern, replace)
+        ;; Replace nested constructs iteratively until no more matches
         (dolist (pair call-graph--pattern-replace-alist)
           (let ((pattern (car pair))
-                (replace (cadr pair)))
-            (goto-char (point-min))
-            (while (re-search-forward pattern nil t) ;; patttern exists
-              (goto-char (point-min)) ;; start from begining
-              (while (re-search-forward pattern nil t) ;; start replacing
-                (replace-match replace t nil))
-              (goto-char (point-min))))) ;; go over and do match-replace again
+                (replace (cadr pair))
+                (found t))
+            (while found
+              (goto-char (point-min))
+              (setq found (re-search-forward pattern nil t))
+              (when found (replace-match replace t nil)))))
         ;; all noise cleared, count number of args
         (let ((args-string (call-graph--trim-string (buffer-string))))
           (cond ((string= "" args-string) 0)
@@ -511,7 +496,9 @@ e.g: class::method(arg1, arg2) => class::method."
     (find-file-read-only-other-window file-name)
     (with-no-warnings (goto-char (point-min))
                       (forward-line (1- line-nb))
-                      (beacon-blink))
+                      (if (fboundp 'beacon-blink)
+                          (beacon-blink)
+                        (pulse-momentary-highlight-one-line (point))))
     (unless (member
              (buffer-name (window-buffer))
              (cl-loop for buffer in call-graph--previous-buffers
@@ -543,15 +530,16 @@ e.g: class::method(arg1, arg2) => class::method."
 
 (defun call-graph--widget-depth-imp (tree &optional depth)
   "Return `DEPTH' of `TREE'."
-  (if-let ((depth (or depth 0))
-           (is-valid-tree (tree-widget-p tree))
-           (is-tree-open (widget-get tree :open)))
-      (progn
-        ;; (message "Depth of %s is %d" (widget-get (tree-widget-node tree) :tag) depth)
-        (seq-max
-         (seq-map (lambda (child) (call-graph--widget-depth-imp child (1+ depth)))
-                  (widget-get tree :children))))
-    (if is-valid-tree depth (1- depth))))
+  (let ((depth (or depth 0))
+        (is-valid-tree (tree-widget-p tree)))
+    (if (and is-valid-tree (widget-get tree :open))
+        (let ((children (widget-get tree :children)))
+          (if children
+              (seq-max
+               (seq-map (lambda (child) (call-graph--widget-depth-imp child (1+ depth)))
+                        children))
+            depth))
+      (if is-valid-tree depth (1- depth)))))
 
 (defun call-graph--save-caller-cache ()
   "Save caller cache by saving `call-graph--caller-cache-alist' in .emacs.desktop file."
@@ -638,7 +626,7 @@ CALCULATE-DEPTH is used to calculate actual depth."
            (lambda (tree-item _)
              (let ((caller (symbol-name tree-item))
                    (parent (or (hierarchy-parent call-graph--default-hierarchy tree-item) 'root-function)))
-               (insert (propertize caller 'caller-name tree-item 'callee-name parent 'intangible t))))
+               (insert (propertize caller 'caller-name tree-item 'callee-name parent))))
            (call-graph--get-buffer)))
     (when switch-buffer
       (switch-to-buffer-other-window hierarchy-buffer))
@@ -733,15 +721,20 @@ This works as a supplement, as `Global' sometimes fail to find caller."
 (defun call-graph--forward-to-text ()
   "Forward to text with callee-name."
   (let ((is-end-of-line (= (point) (line-end-position))))
-    (while (not (get-text-property (point) 'callee-name))
+    (while (and (not (get-text-property (point) 'callee-name))
+                (if is-end-of-line
+                    (> (point) (point-min))
+                  (< (point) (point-max))))
       (if is-end-of-line (backward-char 1)
         (forward-char)))))
 
 (defun call-graph--forward-to-button ()
   "Forward to button."
   (beginning-of-line)
-  (while (not (get-char-property (point) 'button))
-    (forward-char)))
+  (let ((eol (line-end-position)))
+    (while (and (not (get-char-property (point) 'button))
+                (< (point) eol))
+      (forward-char))))
 
 (defun call-graph-goto-file-at-point ()
   "Go to the occurrence on the current line."
@@ -775,13 +768,16 @@ This works as a supplement, as `Global' sometimes fail to find caller."
                   (concat (symbol-name (call-graph--extract-method-name callee)) " <- " (symbol-name caller))))
                 (locations (call-graph--get-func-caller-location call-graph callee caller))
                 (has-many (> (seq-length locations) 1)))
-      (ivy-read "Caller Locations:" locations
-                :action (lambda (func-location)
-                          (while (not (equal func-location (car locations)))
-                            (setq locations ; put selected location upfront
-                                  (nconc (cdr locations) (cons (car locations) ()))))
-                          (setf (map-elt (call-graph--locations call-graph) func-caller-key) locations)
-                          (call-graph--visit-function func-location))))))
+      (let ((visit-action (lambda (func-location)
+                            (while (not (equal func-location (car locations)))
+                              (setq locations ; put selected location upfront
+                                    (nconc (cdr locations) (cons (car locations) ()))))
+                            (setf (map-elt (call-graph--locations call-graph) func-caller-key) locations)
+                            (call-graph--visit-function func-location))))
+        (if (fboundp 'ivy-read)
+            (ivy-read "Caller Locations:" locations :action visit-action)
+          (let ((loc (completing-read "Caller Locations: " locations nil t)))
+            (funcall visit-action loc)))))))
 
 (defun call-graph-remove-single-caller ()
   "Within buffer <*call-graph*>, remove single caller at point."
@@ -877,13 +873,15 @@ With prefix argument, discard whole caller cache."
            (get-text-property (point) 'caller-name)))
       (unless origin-caller-name
         (beginning-of-line)
-        (while (null (setq origin-caller-name
-                           (get-text-property (point) 'caller-name)))
+        (while (and (null (setq origin-caller-name
+                                (get-text-property (point) 'caller-name)))
+                    (< (point) (line-end-position)))
           (forward-char)))
       (call-graph--create call-graph func depth)
       (goto-char origin-pos)
-      (while (null (equal (get-text-property (point) 'caller-name)
-                          origin-caller-name))
+      (while (and (null (equal (get-text-property (point) 'caller-name)
+                               origin-caller-name))
+                  (< (point) (point-max)))
         (forward-char))
       (call-graph--forward-to-button)
       (call-graph-display-file-at-point))))
@@ -898,14 +896,16 @@ With prefix argument, discard whole caller cache."
         list-of-parents parent-caller-name)
     (unless origin-caller-name
       (beginning-of-line)
-      (while (null (setq origin-caller-name
-                         (get-text-property (point) 'caller-name)))
+      (while (and (null (setq origin-caller-name
+                              (get-text-property (point) 'caller-name)))
+                  (< (point) (line-end-position)))
         (forward-char)))
     (cl-pushnew origin-caller-name list-of-parents)
     (while (null (tree-mode-root-linep))
       (tree-mode-goto-parent 1)
-      (while (null (setq parent-caller-name
-                         (get-text-property (point) 'caller-name)))
+      (while (and (null (setq parent-caller-name
+                              (get-text-property (point) 'caller-name)))
+                  (< (point) (line-end-position)))
         (forward-char))
       (cl-pushnew parent-caller-name list-of-parents))
     (goto-char (point-min))
@@ -916,8 +916,9 @@ With prefix argument, discard whole caller cache."
       (tree-mode-expand-level 1)))
     (goto-char origin-pos)
     (end-of-line)
-    (while (null (member (get-text-property (point) 'caller-name)
-                         list-of-parents))
+    (while (and (null (member (get-text-property (point) 'caller-name)
+                              list-of-parents))
+                (> (point) (point-min)))
       (forward-char -1))
     (call-graph--forward-to-button)
     (call-graph-display-file-at-point)
@@ -955,15 +956,13 @@ With prefix argument, discard whole caller cache."
         buffer-read-only t
         show-trailing-whitespace nil)
   (setq-local line-move-visual t)
-  (set (make-local-variable 'inhibit-point-motion-hooks) nil)
   (hack-dir-local-variables-non-file-buffer)
   (make-local-variable 'text-property-default-nonsticky)
   (push (cons 'keymap t) text-property-default-nonsticky)
   (when call-graph-display-file-other-window
     (add-hook 'widget-move-hook 'call-graph-display-file-at-point))
   (setq desktop-globals-to-save
-        (add-to-list 'desktop-globals-to-save 'call-graph--caller-cache-alist))
-  (run-mode-hooks))
+        (add-to-list 'desktop-globals-to-save 'call-graph--caller-cache-alist)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests
