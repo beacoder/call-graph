@@ -1,23 +1,28 @@
 EMACS ?= emacs
-ELPA_DIRS := $(shell find ~/.emacs.d/elpa* -maxdepth 0 -type d 2>/dev/null)
-LOAD_PATH = -L . $(patsubst %,-L %,$(wildcard $(addsuffix /*,$(ELPA_DIRS))))
 
-.PHONY: check compile lint clean
+# A space-separated list of required package names
+DEPS = tree-mode ivy beacon
 
-check: compile lint
+INIT_PACKAGES="(progn \
+  (require 'package) \
+  (push '(\"melpa\" . \"https://melpa.org/packages/\") package-archives) \
+  (package-initialize) \
+  (dolist (pkg '(PACKAGES)) \
+    (unless (package-installed-p pkg) \
+      (unless (assoc pkg package-archive-contents) \
+        (package-refresh-contents)) \
+      (package-install pkg))) \
+  )"
 
-compile: clean
-	$(EMACS) --batch $(LOAD_PATH) \
-	  -f batch-byte-compile call-graph.el
+all: compile package-lint clean-elc
 
-lint:
-	$(EMACS) --batch $(LOAD_PATH) \
-	  --eval "(require 'checkdoc)" \
-	  --eval "(require 'package-lint nil t)" \
-	  --eval "(with-current-buffer (find-file-noselect \"call-graph.el\") \
-	    (princ (format \"package-lint: %s\n\" (package-lint-buffer))) \
-	    (princ (format \"checkdoc: %s\n\" (checkdoc-current-buffer t))) \
-	    (kill-buffer))"
+package-lint:
+	${EMACS} -Q --eval $(subst PACKAGES,package-lint,${INIT_PACKAGES}) -batch -f package-lint-batch-and-exit call-graph.el
 
-clean:
+compile: clean-elc
+	${EMACS} -Q --eval $(subst PACKAGES,${DEPS},${INIT_PACKAGES}) -L . -batch -f batch-byte-compile *.el
+
+clean-elc:
 	rm -f *.elc
+
+.PHONY:	all compile clean-elc package-lint
